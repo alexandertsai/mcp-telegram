@@ -1,1 +1,1 @@
-telegram_mcp
+mcp_telegram

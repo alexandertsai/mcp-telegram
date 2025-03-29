@@ -31,7 +31,7 @@ async def authenticate():
     phone = input("Enter your phone number (with country code, e.g. +12345678900): ")
     
     # Create session file in a known location specific to this phone
-    session_path = os.path.expanduser(f"~/.telegram_mcp_{phone}")
+    session_path = os.path.expanduser(f"~/.mcp_telegram_{phone}")
     
     # Use StringSession for more reliable storage
     client = TelegramClient(StringSession(), api_id, api_hash)

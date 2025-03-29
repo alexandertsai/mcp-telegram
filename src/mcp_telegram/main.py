@@ -17,9 +17,9 @@ import nest_asyncio
 nest_asyncio.apply()
 
 # Configure logging
-log_dir = os.path.expanduser("~/telegram_mcp_logs")
+log_dir = os.path.expanduser("~/mcp_telegram_logs")
 os.makedirs(log_dir, exist_ok=True)
-log_file = os.path.join(log_dir, "telegram_mcp.log")
+log_file = os.path.join(log_dir, "mcp_telegram.log")
 
 logging.basicConfig(
     level=logging.INFO,
@@ -322,7 +322,7 @@ def main():
         sys.exit(1)
     
     # Session paths
-    session_path = os.path.expanduser(f"~/.telegram_mcp_{phone}")
+    session_path = os.path.expanduser(f"~/.mcp_telegram_{phone}")
     session_string_file = f"{session_path}.string"
     session_string = None
     

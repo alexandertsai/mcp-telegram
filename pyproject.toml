@@ -18,8 +18,8 @@ dependencies = [
 ]
 
 [project.scripts]
-telegram-mcp = "telegram_mcp.main:main"
-telegram-auth = "telegram_mcp.telethon_auth:main"
+telegram-mcp = "mcp_telegram.main:main"
+telegram-auth = "mcp_telegram.telethon_auth:main"
 
 [project.urls]
 "Homepage" = "https://github.com/alexandertsai/telegram-mcp"
@@ -31,4 +31,4 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
-packages = ["telegram_mcp"]
+packages = ["mcp_telegram"]

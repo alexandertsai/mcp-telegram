@@ -27,10 +27,15 @@ Install the required packages:
 # Clone the repository within your desired directory (if you haven't already)
 git clone https://github.com/alexandertsai/mcp-telegram
 cd mcp-telegram
+```
 
+Set up the virtual environment. Use `pip3` instead if applicable.
+```bash
 # Set up virtual environment
+pip install uv
 uv venv
 source .venv/bin/activate
+# .venv\Scripts\activate for windows
 uv add "mcp[cli]" telethon python-dotenv nest_asyncio
 ```
 
@@ -115,6 +120,6 @@ ls -la ~/.mcp_telegram_*
 ```
 Then terminate your session files with (just copy and paste the path of the files with rm in front)
 ```bash
-rm /Users/username/.telegram_mcp_numberininternationalformat*
+rm /Users/username/.mcp_telegram_numberininternationalformat*
 ```
 Try step 3 again.

@@ -127,6 +127,6 @@ ls -la ~/.mcp_telegram_*
 ```
 Then terminate your session files with (just copy and paste the path of the files with rm in front)
 ```bash
-rm /Users/username/.telegram_mcp_numberininternationalformat*
+rm /Users/username/.mcp_telegram_numberininternationalformat*
 ```
 Try step 3 again.
