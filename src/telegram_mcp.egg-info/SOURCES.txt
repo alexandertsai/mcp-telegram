@@ -1,0 +1,12 @@
+LICENSE.txt
+README.md
+pyproject.toml
+src/telegram_mcp/__init__.py
+src/telegram_mcp/main.py
+src/telegram_mcp/telethon_auth.py
+src/telegram_mcp.egg-info/PKG-INFO
+src/telegram_mcp.egg-info/SOURCES.txt
+src/telegram_mcp.egg-info/dependency_links.txt
+src/telegram_mcp.egg-info/entry_points.txt
+src/telegram_mcp.egg-info/requires.txt
+src/telegram_mcp.egg-info/top_level.txt
