@@ -32,7 +32,7 @@ cd mcp-telegram
 Set up the virtual environment. Use `pip3` instead if applicable.
 ```bash
 # Set up virtual environment
-pip install uv
+pip install uv mcp
 uv venv
 source .venv/bin/activate
 # .venv\Scripts\activate for windows
@@ -41,25 +41,36 @@ uv add "mcp[cli]" telethon python-dotenv nest_asyncio
 
 ### Step 3: Add IDs
 
+**For Mac (bash):**
+
 In the virtual environment, run the following:
 ```bash
-export TELEGRAM_PHONE=phone number with country code
+export TELEGRAM_PHONE=phone number with country code and no spaces
 export TELEGRAM_API_ID=api_id
 export TELEGRAM_API_HASH=api_hash
 ```
 
 Check to see if they have been exported with `printenv` in terminal.
 
+**For Windows (Powershell):**
+
+In the virtual environment, run the following. Make sure to include the quotation marks otherwise powershell may struggle:
+```powershell
+$env:TELEGRAM_PHONE="phone number with country code and no spaces"
+$env:TELEGRAM_API_ID="api_id"
+$env:TELEGRAM_API_HASH="api_hash"
+```
+
+Check to see if they have been exported with `gci env:` in powershell.
+
 ### Step 4: Run authentication
 
-Run this to authenticate:
+Run this to authenticate. If you have 2FA, when typing in your password you will not see any text appear in the terminal. This is normal! Try not to make a typo during 2FA - it makes you restart the entire process if you do... Use `python` or `python3` depending on which you have installed.:
 
 ```bash
 cd src/mcp_telegram
 python3 telethon_auth.py
 ```
-
-If you have 2FA, when typing in your password you will not see anything in the terminal. This is normal! Do not make a typo - it makes you restart the entire process if you do... Use `python` or `python3` depending on which you have installed.
 
 You'll be asked for:
 - Your phone number (in international format with +) (do not leave any spaces)
@@ -78,23 +89,29 @@ Edit your Claude Desktop configuration:
 Alternatively, go to settings, click on Developer and then Edit Config. Make sure developer mode is enabled. 
 
 
-Add this to your config (replace with your actual credentials) To get a full path, go to your IDE or desktop, find the file, right click on it, and click "COPY PATH". Run `which python` (windows) or `where python` (mac) in your terminal to get the full path (replace with `python3` if needed).
+Add this to your config (replace with your actual credentials) :
 
 ```json
 "mcpServers": {
-    "telegram": {
+      "telegram": {
       "command": "/your/path/to/python3",
       "args": ["/full/path/to/mcp-telegram/main.py"],
       "env": {
-        "TELEGRAM_API_ID": "your_api_id_here",
-        "TELEGRAM_API_HASH": "your_api_hash_here",
-        "TELEGRAM_PHONE": "+65945678900"
+          "TELEGRAM_API_ID": "your_api_id_here",
+          "TELEGRAM_API_HASH": "your_api_hash_here",
+          "TELEGRAM_PHONE": "+65945678900"
+          }
       }
-    }
-}
+  }
 ```
 
-**VERY Important**:
+**main.py:**
+To get the full path, go to your IDE or desktop, find the file, right click on it, and click "COPY PATH".
+
+**python:**
+Run `where.exe python` (Windows) or `where python` (Mac) in your terminal to get the full path (replace with `python3` if needed). If on Windows, you may need to replace the backslashes in your path with forward slash because of JSON formatting (ctrl+f "\\", replace all (ctrl + h) with "/").
+
+### VERY IMPORTANT:
 1. Use the full absolute path to both Python and the main.py script
 2. Replace API credentials with your actual values from Step 1
 3. Set your phone number in international format
