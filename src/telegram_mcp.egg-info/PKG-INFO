@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
-Name: telegram-mcp
+Name: mcp-telegram
 Version: 0.1.0
 Summary: A Telegram MCP server for reading and writing messages.
 Author: Alexander Tsai
 License-Expression: Apache-2.0
-Project-URL: Homepage, https://github.com/alexandertsai/telegram-mcp
-Project-URL: Bug Tracker, https://github.com/alexandertsai/telegram-mcp/issues
+Project-URL: Homepage, https://github.com/alexandertsai/mcp-telegram
+Project-URL: Bug Tracker, https://github.com/alexandertsai/mcp-telegram/issues
 Keywords: telegram,mcp,claude,ai,llm
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
