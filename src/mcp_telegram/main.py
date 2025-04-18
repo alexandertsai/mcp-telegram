@@ -17,7 +17,7 @@ import nest_asyncio
 nest_asyncio.apply()
 
 # Configure logging
-log_dir = os.path.expanduser("~/mcp_telegram_logs")
+log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
 os.makedirs(log_dir, exist_ok=True)
 log_file = os.path.join(log_dir, "mcp_telegram.log")
 
@@ -63,13 +63,13 @@ class TelegramServer:
                 # For page 1, start from the beginning
                 if page == 1:
                     dialogs = loop.run_until_complete(
-                        self.client.get_dialogs(limit=page_size)
+                        self.client.get_dialogs(limit=page_size, archived=False)
                     )
                 else:
                     # For subsequent pages, we need to get all previous dialogs first
                     # to determine the correct offset parameters
                     all_previous = loop.run_until_complete(
-                        self.client.get_dialogs(limit=(page - 1) * page_size)
+                        self.client.get_dialogs(limit=(page - 1) * page_size, archived=False)
                     )
                     
                     # If we don't have enough results for previous pages
@@ -121,6 +121,9 @@ class TelegramServer:
                 # Use the global event loop consistently
                 messages = loop.run_until_complete(
                     self.client.get_messages(chat_id, limit=limit, offset_id=0, offset_date=None, add_offset=offset)
+                )
+                loop.run_until_complete(
+                    self.client.send_read_acknowledge(entity=chat_id)
                 )
                 
                 result = []

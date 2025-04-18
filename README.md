@@ -13,15 +13,18 @@ This is a simple MCP server that lets Claude access your Telegram account to rea
 
 ## Setup
 
+### Recommended set up
+
 ### Step 1: Get Your Telegram API Credentials
 
 1. Go to [https://my.telegram.org/apps](https://my.telegram.org/apps)
 2. Log in and create an application (or use an existing one)
+Note: It doesn't matter what kind of application - just create anything... make sure to select "web" under the type.
 3. Note down your **API ID** and **API Hash**
 
 ### Step 2: Set Up Python Environment
 
-Install the required packages:
+Install the required packages (open your terminal to do this. command+space on mac and key in 'terminal' or on windows hit the windows key and key in 'terminal'. Copy and paste the code into the terminal line by line). Ensure you have installed Git beforehand.
 
 ```bash
 # Clone the repository within your desired directory (if you haven't already)
@@ -32,11 +35,11 @@ cd mcp-telegram
 Set up the virtual environment. Use `pip3` instead if applicable.
 ```bash
 # Set up virtual environment
-pip install uv mcp
+pip install uv
 uv venv
 source .venv/bin/activate
 # .venv\Scripts\activate for windows
-uv add "mcp[cli]" telethon python-dotenv nest_asyncio
+uv add mcp-sdk telethon python-dotenv nest_asyncio
 ```
 
 ### Step 3: Add IDs
@@ -83,13 +86,13 @@ This creates a session file in your home directory so you don't need to authenti
 
 Edit your Claude Desktop configuration:
 
+Open Claude desktop, go to settings (cmd+,), click on Developer and then Edit Config. Edit the claude)desktop_config.json file. Make sure developer mode is enabled. 
+
 **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`  
 **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
 
-Alternatively, go to settings, click on Developer and then Edit Config. Make sure developer mode is enabled. 
 
-
-Add this to your config (replace with your actual credentials) :
+Add this to your config (replace with your actual credentials). Press command+s to save. :
 
 ```json
 "mcpServers": {
@@ -129,6 +132,10 @@ Restart Claude Desktop (quit and reopen), and you can now ask Claude to:
 - Send messages to your contacts or groups while sounding natural
 
 Make sure to include the word "Telegram" when asking Claude a prompt or it might not understand. For example, "Claude do I have any unread telegram messages?"
+
+## Customisation
+
+You can go under Claude Desktop -> click on your user then settings in the bottom left -> configure your personal preferences to get more tailored responses. For example "When using MCP to check Telegram, ignore channels". 
 
 ## Pesky troubleshooting
 While in the virtual environment, try running:
