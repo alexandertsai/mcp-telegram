@@ -2,94 +2,90 @@
 
 import os
 import sys
-import logging
 import json
-import asyncio
-import time
 from telethon import TelegramClient
-from telethon.sessions import StringSession, MemorySession
-from telethon.errors import SessionPasswordNeededError
+from telethon.sessions import StringSession
 from mcp.server.fastmcp import FastMCP
-from typing import Dict, List, Any, Optional
-import nest_asyncio
+from typing import Optional
+from dotenv import load_dotenv
 
-# Apply nest_asyncio to allow nested event loops
-nest_asyncio.apply()
-
-# Configure logging
-log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
-os.makedirs(log_dir, exist_ok=True)
-log_file = os.path.join(log_dir, "mcp_telegram.log")
-
-logging.basicConfig(
-    level=logging.INFO,
-    format='[%(asctime)s] %(levelname)-8s %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S',
-    filename=log_file,
-    filemode='a'
-)
-logger = logging.getLogger(__name__)
-
-# Add stderr handler for critical errors
-stderr_handler = logging.StreamHandler(sys.stderr)
-stderr_handler.setLevel(logging.CRITICAL)
-formatter = logging.Formatter('[%(asctime)s] %(levelname)-8s %(message)s')
-stderr_handler.setFormatter(formatter)
-logger.addHandler(stderr_handler)
-
-# Create a global event loop
-loop = asyncio.new_event_loop()
-asyncio.set_event_loop(loop)
+# Client will be initialized when needed
+client: Optional[TelegramClient] = None
 
 class TelegramServer:
-    def __init__(self, client):
-        self.client = client
+    def __init__(self):
         self.app = FastMCP("telegram")
+        self.client = None
         self.register_tools()
+    
+    async def initialize_client(self):
+        """Initialize Telegram client if not already initialized"""
+        if self.client and self.client.is_connected():
+            return
+        
+        api_id = os.getenv('TELEGRAM_API_ID')
+        api_hash = os.getenv('TELEGRAM_API_HASH')
+        session_string = os.getenv('TELEGRAM_SESSION_STRING')
+        
+        if not api_id or not api_hash or not session_string:
+            raise ValueError("Missing Telegram credentials in .env file")
+        
+        self.client = TelegramClient(StringSession(session_string), api_id, api_hash)
+        await self.client.connect()
+        
+        if not await self.client.is_user_authorized():
+            raise ValueError("Session string is invalid or expired")
     
     def register_tools(self):
         """Register Telegram-related tools with the MCP server"""
         
         @self.app.tool()
-        def get_chats(page: int, page_size: int = 20) -> str:
+        async def get_chats(page: int, page_size: int = 20, offset_id: int = 0, offset_date: str = None, offset_peer_id: int = None) -> str:
             """
             Used when checking messages. Gets a paginated list of chats from Telegram. 
             
             Args:
                 page: Page number (1-indexed).
                 page_size: Number of chats per page.
+                offset_id: Message ID to use as offset for pagination (from previous page's last_message_id).
+                offset_date: Date to use as offset for pagination (from previous page's last_message_date).
+                offset_peer_id: Peer ID to use as offset for pagination (from previous page's last_peer_id).
+            
+            After using this tool, use get_messages to read the actual messages from chats
+  with unread_count > 0
             """
             try:
+                await self.initialize_client()
                 # For page 1, start from the beginning
-                if page == 1:
-                    dialogs = loop.run_until_complete(
-                        self.client.get_dialogs(limit=page_size, archived=False)
-                    )
+                if page == 1 or (offset_id == 0 and offset_date is None and offset_peer_id is None):
+                    dialogs = await self.client.get_dialogs(limit=page_size, archived=False)
                 else:
-                    # For subsequent pages, we need to get all previous dialogs first
-                    # to determine the correct offset parameters
-                    all_previous = loop.run_until_complete(
-                        self.client.get_dialogs(limit=(page - 1) * page_size, archived=False)
-                    )
+                    # For subsequent pages, use the provided offset parameters
+                    offset_peer = None
+                    if offset_peer_id:
+                        # Get the peer entity from the ID
+                        offset_peer = await self.client.get_entity(offset_peer_id)
                     
-                    # If we don't have enough results for previous pages
-                    if len(all_previous) < (page - 1) * page_size:
-                        return json.dumps([], indent=2)
+                    # Parse the offset date if provided
+                    from datetime import datetime
+                    offset_date_obj = None
+                    if offset_date:
+                        try:
+                            offset_date_obj = datetime.fromisoformat(offset_date.replace('Z', '+00:00'))
+                        except:
+                            offset_date_obj = None
                     
-                    # Get the last dialog from the previous page to use as offset
-                    last_dialog = all_previous[-1]
-                    
-                    # Use the date, ID and peer of the last message as offset
-                    dialogs = loop.run_until_complete(
-                        self.client.get_dialogs(
-                            limit=page_size,
-                            offset_date=last_dialog.date,
-                            offset_id=last_dialog.message.id if last_dialog.message else 0,
-                            offset_peer=last_dialog.entity
-                        )
+                    dialogs = await self.client.get_dialogs(
+                        limit=page_size,
+                        offset_date=offset_date_obj,
+                        offset_id=offset_id,
+                        offset_peer=offset_peer,
+                        archived=False
                     )
                 
                 result = []
+                pagination_info = None
+                
                 for dialog in dialogs:
                     chat = {
                         "id": dialog.id,
@@ -98,14 +94,38 @@ class TelegramServer:
                         "type": str(dialog.entity.__class__.__name__)
                     }
                     result.append(chat)
+                    
+                    # Store pagination info from the last dialog
+                    if dialog == dialogs[-1] and dialog.message:
+                        pagination_info = {
+                            "last_message_id": dialog.message.id,
+                            "last_message_date": dialog.date.isoformat() if dialog.date else None,
+                            "last_peer_id": dialog.id
+                        }
                 
-                return json.dumps(result, indent=2)
+                # Return both results and pagination info
+                response = {
+                    "chats": result,
+                    "page": page,
+                    "page_size": page_size,
+                    "has_more": len(result) == page_size
+                }
+                
+                if pagination_info:
+                    response["next_page_params"] = {
+                        "page": page + 1,
+                        "page_size": page_size,
+                        "offset_id": pagination_info["last_message_id"],
+                        "offset_date": pagination_info["last_message_date"],
+                        "offset_peer_id": pagination_info["last_peer_id"]
+                    }
+                
+                return json.dumps(response, indent=2)
             except Exception as e:
-                logger.error(f"Error fetching chats: {str(e)}")
                 return json.dumps({"error": str(e)})
                 
         @self.app.tool()
-        def get_messages(chat_id: int, page: int, page_size: int = 20) -> str:
+        async def get_messages(chat_id: int, page: int, page_size: int = 20) -> str:
             """
             Get paginated messages from a specific chat from Telegram.
             
@@ -118,13 +138,9 @@ class TelegramServer:
             limit = page_size
             
             try:
-                # Use the global event loop consistently
-                messages = loop.run_until_complete(
-                    self.client.get_messages(chat_id, limit=limit, offset_id=0, offset_date=None, add_offset=offset)
-                )
-                loop.run_until_complete(
-                    self.client.send_read_acknowledge(entity=chat_id)
-                )
+                await self.initialize_client()
+                messages = await self.client.get_messages(chat_id, limit=limit, offset_id=0, offset_date=None, add_offset=offset)
+                await self.client.send_read_acknowledge(entity=chat_id)
                 
                 result = []
                 for message in messages:
@@ -139,11 +155,10 @@ class TelegramServer:
                 
                 return json.dumps(result, indent=2)
             except Exception as e:
-                logger.error(f"Error fetching messages: {str(e)}")
                 return json.dumps({"error": str(e)})
             
         @self.app.tool()
-        def mark_messages_read(chat_id: int) -> str:
+        async def mark_messages_read(chat_id: int) -> str:
             """
             Mark all unread messages in a specific Telegram chat as read.
             
@@ -151,21 +166,18 @@ class TelegramServer:
                 chat_id: The ID of the chat whose messages should be marked as read.
             """
             try:
-                # Use the global event loop consistently
+                await self.initialize_client()
                 # The read_history method marks messages as read
-                result = loop.run_until_complete(
-                    self.client.send_read_acknowledge(entity=chat_id)
-                )
+                result = await self.client.send_read_acknowledge(entity=chat_id)
                 return json.dumps({
                     "success": True, 
                     "message": f"Successfully marked messages as read in chat {chat_id}"
                 })
             except Exception as e:
-                logger.error(f"Error marking messages as read: {str(e)}")
                 return json.dumps({"success": False, "error": str(e)})
                 
         @self.app.tool()
-        def send_message(chat_id: int, message: str, reply_to_msg_id: int = None) -> str:
+        async def send_message(chat_id: int, message: str, reply_to_msg_id: int = None) -> str:
             """
             Send a message to a specific chat in Telegram.
             
@@ -175,13 +187,11 @@ class TelegramServer:
                 reply_to_msg_id: Optional ID of a message to reply to. If provided, this message will be a reply to that specific message.
             """
             try:
-                # Use the global event loop consistently
-                result = loop.run_until_complete(
-                    self.client.send_message(
-                        entity=chat_id, 
-                        message=message,
-                        reply_to=reply_to_msg_id  # This parameter tells Telegram this is a reply to a specific message
-                    )
+                await self.initialize_client()
+                result = await self.client.send_message(
+                    entity=chat_id, 
+                    message=message,
+                    reply_to=reply_to_msg_id
                 )
                 return json.dumps({
                     "success": True, 
@@ -190,7 +200,6 @@ class TelegramServer:
                     "replied_to_message_id": reply_to_msg_id
                 })
             except Exception as e:
-                logger.error(f"Error sending message: {str(e)}")
                 return json.dumps({
                     "success": False, 
                     "error": str(e),
@@ -199,25 +208,22 @@ class TelegramServer:
                 })
         
         @self.app.tool()
-        def get_conversation_context(chat_id: int, message_count: int = 20) -> str:
+        async def get_conversation_context(chat_id: int, message_count: int = 30) -> str:
             """
-            Get previous messages from a Telegram chat to analyze conversation context and style.
-            
             This function retrieves recent messages from a specific chat to help
-            Claude understand the conversational style and tone, allowing it to
+            understand the conversational style and tone, allowing it to
             generate responses that match the existing conversation pattern.
             The function also reads a user-defined style guide from convostyle.txt
             to further refine the response style.
             
             Args:
                 chat_id: The ID of the chat to analyze.
-                message_count: Number of recent messages to retrieve (default: 20).
+                message_count: Number of recent messages to retrieve (default: 30).
             """
             try:
+                await self.initialize_client()
                 # Get messages from the chat
-                messages = loop.run_until_complete(
-                    self.client.get_messages(chat_id, limit=message_count)
-                )
+                messages = await self.client.get_messages(chat_id, limit=message_count)
                 
                 # Process and organize the conversation
                 conversation = []
@@ -228,9 +234,7 @@ class TelegramServer:
                     if msg.sender_id and msg.sender_id not in sender_info:
                         try:
                             # Get sender information
-                            entity = loop.run_until_complete(
-                                self.client.get_entity(msg.sender_id)
-                            )
+                            entity = await self.client.get_entity(msg.sender_id)
                             sender_name = getattr(entity, 'first_name', '') or getattr(entity, 'title', '') or str(msg.sender_id)
                             sender_info[msg.sender_id] = {
                                 'id': msg.sender_id,
@@ -268,9 +272,7 @@ class TelegramServer:
                 try:
                     with open(style_guide_path, 'r', encoding='utf-8') as file:
                         style_guide = file.read().strip()
-                    logger.info(f"Successfully read style guide from {style_guide_path}")
                 except Exception as e:
-                    logger.warning(f"Could not read style guide file: {str(e)}")
                     style_guide = "Style guide file not available. Focus only on conversation history."
                 
                 # Add analysis information to help Claude
@@ -304,7 +306,6 @@ class TelegramServer:
                 return json.dumps(result, indent=2, ensure_ascii=False)
                 
             except Exception as e:
-                logger.error(f"Error getting conversation context: {str(e)}")
                 return json.dumps({
                     "error": str(e),
                     "message": "Failed to retrieve conversation context"
@@ -315,69 +316,32 @@ class TelegramServer:
         self.app.run(transport='stdio')
 
 def main():
-    # Get Telegram API credentials
-    api_id = os.environ.get('TELEGRAM_API_ID')
-    api_hash = os.environ.get('TELEGRAM_API_HASH')
-    phone = os.environ.get('TELEGRAM_PHONE')
+    # Load .env file
+    load_dotenv()
     
-    if not api_id or not api_hash or not phone:
-        logger.critical("Please set TELEGRAM_API_ID, TELEGRAM_API_HASH, and TELEGRAM_PHONE environment variables")
+    # Get Telegram API credentials from .env file
+    api_id = os.getenv('TELEGRAM_API_ID')
+    api_hash = os.getenv('TELEGRAM_API_HASH')
+    session_string = os.getenv('TELEGRAM_SESSION_STRING')
+    
+    if not api_id or not api_hash:
+        print("Please set TELEGRAM_API_ID and TELEGRAM_API_HASH in your .env file", file=sys.stderr)
+        print("Get these from https://my.telegram.org/apps", file=sys.stderr)
         sys.exit(1)
     
-    # Session paths
-    session_path = os.path.expanduser(f"~/.mcp_telegram_{phone}")
-    session_string_file = f"{session_path}.string"
-    session_string = None
-    
-    # Load session string if available
-    if os.path.exists(session_string_file):
-        try:
-            with open(session_string_file, 'r') as f:
-                session_string = f.read().strip()
-            logger.info(f"Loaded session string from {session_string_file}")
-        except Exception as e:
-            logger.warning(f"Failed to load session string: {str(e)}")
+    if not session_string:
+        print("Please set TELEGRAM_SESSION_STRING in your .env file", file=sys.stderr)
+        print("Run: python telethon_auth.py to generate a session string", file=sys.stderr)
+        sys.exit(1)
     
     try:
-        # Create a regular TelegramClient (not SyncTelegramClient)
-        # and use it with our consistent event loop
-        if session_string:
-            client = TelegramClient(StringSession(session_string), api_id, api_hash, loop=loop)
-        else:
-            client = TelegramClient(MemorySession(), api_id, api_hash, loop=loop)
-        
-        # Connect using our loop
-        loop.run_until_complete(client.connect())
-        
-        # Check authorization
-        if not loop.run_until_complete(client.is_user_authorized()):
-            logger.critical(f"Not authenticated. Please run the authentication script first.")
-            logger.critical(f"Run: python telethon_auth.py")
-            sys.exit(1)
-        
-        # Save session string if needed
-        if not session_string:
-            try:
-                session_string = client.session.save()
-                with open(session_string_file, 'w') as f:
-                    f.write(session_string)
-                logger.info(f"Saved session string to {session_string_file}")
-            except Exception as e:
-                logger.warning(f"Failed to save session string: {str(e)}")
-        
-        logger.info(f"Successfully connected to Telegram with authenticated session")
-        
         # Create and run server
-        server = TelegramServer(client)
+        server = TelegramServer()
         server.run()
         
     except Exception as e:
-        logger.critical(f"Error: {str(e)}")
+        print(f"Error: {str(e)}", file=sys.stderr)
         sys.exit(1)
-    finally:
-        # Clean up
-        if 'client' in locals():
-            loop.run_until_complete(client.disconnect())
 
 if __name__ == "__main__":
     main()
