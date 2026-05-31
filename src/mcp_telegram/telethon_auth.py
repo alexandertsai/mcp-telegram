@@ -125,7 +125,7 @@ async def authenticate():
             logger.info("✓ Authentication successful!")
             logger.info("✓ Session string saved to .env file")
             logger.info("")
-            logger.info("You can now start the MCP server with: python main.py")
+            logger.info("You can now start the MCP server with: uv run telegram-mcp")
             logger.info("")
             logger.info("Your .env file has been updated with:")
             logger.info("- TELEGRAM_SESSION_STRING (required)")

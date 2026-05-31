@@ -4,25 +4,54 @@ Connect Claude to your Telegram account to read and send messages.
 
 ## Features
 
+Most chats, users, and groups can be referenced by numeric id, `@username`,
+phone number, t.me link, or the literal `"me"` — the server resolves them for
+you (and warms Telethon's entity cache automatically so raw ids work too).
+
 ### Available Tools
 
-1. **get_chats** - List your Telegram chats
-   - Returns paginated list with chat names, IDs, and unread counts
-   - For page 1, just provide page number
-   - For subsequent pages, use the pagination parameters from the previous response
+**Reading**
 
-2. **get_messages** - Read messages from a specific chat
-   - Fetches paginated message history
-   - Automatically marks messages as read
+- **get_me** – Info about the authenticated account
+- **get_chats** – Paginated list of chats (names, ids, unread counts, pinned state); supports archived chats
+- **get_messages** – Paginated message history for a chat (marks it read); includes media and reaction info
+- **search_messages** – Search by text, globally or within a single chat
+- **get_pinned_messages** – List pinned messages in a chat
+- **get_entity_info** – Look up a user/group/channel by id, username, phone, or link
+- **get_participants** – List members of a group or channel
 
-3. **mark_messages_read** - Mark all unread messages in a chat as read
+**Sending & editing**
 
-4. **send_message** - Send messages to any chat
-   - Supports replying to specific messages
+- **send_message** – Send text (Markdown), optionally as a reply
+- **edit_message** – Edit a message you sent
+- **delete_messages** – Delete messages (for everyone or just you)
+- **forward_messages** – Forward messages between chats
+- **send_reaction** – Add or clear an emoji reaction
+- **pin_message** / **unpin_message** – Pin or unpin messages
+- **mark_messages_read** – Mark a chat's unread messages as read
 
-5. **get_conversation_context** - Analyze chat style for natural responses
-   - Reads your conversation style guide from `convostyle.txt`
-   - Helps Claude match your texting patterns
+**Media**
+
+- **send_file** – Send a photo, video, document, or voice note from disk
+- **download_media** – Download a message's attached media to disk
+
+**Contacts & users**
+
+- **get_contacts** – List saved contacts
+- **add_contact** / **delete_contact** – Manage contacts
+- **block_user** / **unblock_user** – Block management
+
+**Chat & channel management**
+
+- **create_group** – Create a basic group
+- **create_channel** – Create a channel or supergroup
+- **join_chat** / **leave_chat** – Join (by username or invite link) or leave
+- **archive_chat** – Archive / unarchive a chat
+- **mute_chat** – Mute / unmute notifications
+
+**Style-aware drafting**
+
+- **get_conversation_context** – Recent messages + your `convostyle.txt` guide so Claude can match your texting style
 
 ## Setup Guide
 
@@ -59,9 +88,10 @@ cp .env.example .env
 
 ### Step 4: Authenticate
 
+From the repository root:
+
 ```bash
-cd src/mcp_telegram
-python telethon_auth.py
+uv run telegram-auth
 ```
 
 Follow the prompts:
@@ -69,28 +99,30 @@ Follow the prompts:
 - Enter the code sent to your Telegram
 - Enter your 2FA password if you have one
 
+This writes `TELEGRAM_SESSION_STRING` to your `.env`.
+
 ### Step 5: Add to Claude Desktop
 
 Find your Claude Desktop config file:
 - **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`  
 - **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
 
-Add this configuration:
+Add this configuration (replace the path with your clone's location):
 
 ```json
 {
   "mcpServers": {
     "telegram": {
-      "command": "/path/to/python",
-      "args": ["/path/to/mcp-telegram/src/mcp_telegram/main.py"]
+      "command": "uv",
+      "args": ["--directory", "/path/to/mcp-telegram", "run", "telegram-mcp"]
     }
   }
 }
 ```
 
-**To find paths:**
-- Python: Run `which python` (Mac) or `where.exe python` (Windows)
-- main.py: Right-click the file and select "Copy Path"
+If `uv` isn't on Claude Desktop's `PATH`, use its absolute path (`which uv`).
+Alternatively, point `command` at your venv's Python and use
+`["-m", "mcp_telegram"]` as the args, with `cwd` set to the repo root.
 
 Restart Claude Desktop.
 
@@ -118,7 +150,7 @@ I use emojis sparingly and prefer short messages.
 If authentication fails:
 1. Check your API credentials in `.env`
 2. Remove the TELEGRAM_SESSION_STRING line from `.env`
-3. Run `python telethon_auth.py` again
+3. Run `uv run telegram-auth` again
 
 ### Common Errors
 

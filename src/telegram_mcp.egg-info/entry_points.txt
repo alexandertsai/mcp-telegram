@@ -1,3 +1,0 @@
-[console_scripts]
-telegram-auth = mcp_telegram.telethon_auth:main
-telegram-mcp = mcp_telegram.main:main

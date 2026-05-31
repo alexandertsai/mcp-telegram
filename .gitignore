@@ -168,3 +168,5 @@ cython_debug/
 
 # Environment variables
 .env
+# macOS
+.DS_Store
